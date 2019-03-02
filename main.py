@@ -33,7 +33,7 @@ def test2():
     david.show()
     
     
-#    print(david.__class__)
+    print(david.__class__)
         
 
 def main():
