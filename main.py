@@ -23,7 +23,7 @@ def test1():
 def test2():
     name = ['Alan', 'Xia', 'Hai']
     
-    age = [2, 32, 31]
+    age = [2, 32, 30]
     for index in range(len(name)):
     
         p = person(name[index], age[index])
