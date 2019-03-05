@@ -13,7 +13,7 @@ import numpy as np
 
 def test1():
 
-    x = [3, 4]
+    x = [3, 6]
 
     for item in x:
         print('square of', item, 'is', mf.sqrt_of(item))
