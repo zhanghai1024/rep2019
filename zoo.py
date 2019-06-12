@@ -71,6 +71,7 @@ def main():
     jill = Zookeeper("Jill Mac", "222-3445")
 
     zoo.hire(jill)
+    print(jill)
     zoo.feed_animals()
 
     for animal in zoo:
