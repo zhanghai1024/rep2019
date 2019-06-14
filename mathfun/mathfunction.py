@@ -1,11 +1,13 @@
 import math
-def sqrt_of(x):
 
+
+def sqrt_of(x):
     return math.sqrt(x)
 
-def power_of(x):
 
-    return x**2
+def power_of(x):
+    return x ** 2
+
 
 def demo(a, b, c):
     d = b ** 2 - 4 * a * c
