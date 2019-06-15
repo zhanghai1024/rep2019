@@ -29,16 +29,7 @@ def test2():
     print(david.__class__)
 
 
-def main():
-    test1()
-    test2()
-    # test3()
-
-
-    # %%
-
-
-if __name__ == '__main__':
+def test3():
     a = 2
     b = 3
     c = -5
@@ -52,4 +43,12 @@ if __name__ == '__main__':
 
     plt.show()
 
-    # main()
+
+def main():
+    test1()
+    test2()
+    test3()
+
+
+if __name__ == '__main__':
+    main()
