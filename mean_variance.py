@@ -244,7 +244,7 @@ def main():
     p.set_risk_aversion(1)
 
     rebalance_time = 0.10
-    number_path = 1000
+    number_path = 100
     p.set_simulation_parameter(rebalance_time, number_path)
     p.run_print_details()
     p.plot_mean_variance_frontier()
