@@ -165,7 +165,7 @@ class Portfolio:
         time_grid = np.arange(0, self.investment_horizon, self.rebalance_time)
         time_grid = np.append(time_grid, self.investment_horizon)
 
-        mean = (self.mean - 0.5 * np.dot(self.volatility.transpose(), self.volatility))
+        mean = (self.mean - 0.5 * self.volatility* self.volatility)
         cov = self.covariance
         stock_price_evolution = np.array([self.initial_stock_price])
         wealthy_evolution = np.array([self.initial_wealthy])
@@ -235,15 +235,15 @@ class Portfolio:
 
 def main():
     risk_free_rate = 0.05
-    mean = [0.10, 0.08]
-    volatility = [0.1, 0.12]
-    correlation = [[1, -0.3], [-0.3, 1]]
+    mean = [0.12,0.11, 0.09]
+    volatility = [0.12,0.11, 0.16]
+    correlation = [[1,0.24, -0.13], [0.24,1, 0.32],[-0.13,0.32,1]]
 
     investment_horizon = 1
     p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
     p.set_risk_aversion(1)
 
-    rebalance_time = 0.01
+    rebalance_time = 0.10
     number_path = 1000
     p.set_simulation_parameter(rebalance_time, number_path)
     p.run_print_details()
