@@ -133,7 +133,7 @@ class Portfolio:
 
         plt.plot(risk_free_variance, risk_free_mean, 'ro')
         plt.annotate('Risk Free($ \lambda=+\infty$)', xy=(risk_free_variance, risk_free_mean),
-                     xytext=(risk_free_variance + 0.01 , risk_free_mean))
+                     xytext=(risk_free_variance + 0.01, risk_free_mean))
 
         plt.plot(aversion_1_variance, aversion_1_mean, 'ro')
         plt.annotate('Half Kelly($ \lambda=1$)', xy=(aversion_1_variance, aversion_1_mean),
@@ -165,7 +165,7 @@ class Portfolio:
         time_grid = np.arange(0, self.investment_horizon, self.rebalance_time)
         time_grid = np.append(time_grid, self.investment_horizon)
 
-        mean = (self.mean - 0.5 * self.volatility* self.volatility)
+        mean = (self.mean - 0.5 * self.volatility * self.volatility)
         cov = self.covariance
         stock_price_evolution = np.array([self.initial_stock_price])
         wealthy_evolution = np.array([self.initial_wealthy])
@@ -233,22 +233,51 @@ class Portfolio:
         print('simulated variance is', self.simulation_analysis()[1])
 
 
+def crra_utility(x, alfa):
+    y = (1 - np.power(x, -alfa))/alfa
+
+
+    return y
+
+def plot_utility_fun():
+
+    x= np.arange(0.2,2.5,0.01)
+    y=crra_utility(x,-1)
+    plt.plot(x, y, label="-1")
+
+    y=crra_utility(x,-0.5)
+    plt.plot(x, y, label="-0.5")
+
+    y=crra_utility(x,-0.001)
+    plt.plot(x, y, label="0")
+
+    y=crra_utility(x,0.5)
+    plt.plot(x, y, label="0.5")
+
+    y=crra_utility(x,1)
+    plt.plot(x, y, label="1")
+    plt.legend()
+
+    plt.show()
+
 def main():
-    risk_free_rate = 0.05
-    mean = [0.12,0.11, 0.09]
-    volatility = [0.12,0.11, 0.16]
-    correlation = [[1,0.24, -0.13], [0.24,1, 0.32],[-0.13,0.32,1]]
+    # risk_free_rate = 0.05
+    # mean = [0.12, 0.09, 0.11]
+    # volatility = [0.12, 0.11, 0.16]
+    # correlation = [[1, 0.24, -0.13], [0.24, 1, 0.32], [-0.13, 0.32, 1]]
+    #
+    # investment_horizon = 1
+    # p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
+    # p.set_risk_aversion(1)
+    #
+    # rebalance_time = 0.10
+    # number_path = 100
+    # p.set_simulation_parameter(rebalance_time, number_path)
+    # p.run_print_details()
+    # p.plot_mean_variance_frontier()
 
-    investment_horizon = 1
-    p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
-    p.set_risk_aversion(1)
 
-    rebalance_time = 0.10
-    number_path = 100
-    p.set_simulation_parameter(rebalance_time, number_path)
-    p.run_print_details()
-    p.plot_mean_variance_frontier()
-
+    plot_utility_fun()
     x = 1
 
 
