@@ -1,5 +1,51 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import pandas_datareader as pdr
+import datetime as datetime
+
+
+class RiskyAssetSet:
+    def __init__(self, tickers, startdate, enddate):
+        self.tickers = tickers
+        self.startdate = startdate
+        self.enddate = enddate
+
+    @property
+    def data(self):
+        def get_data(ticker):
+            return (pdr.get_data_yahoo(ticker, start=self.startdate, end=self.enddate))
+
+        datas = map(get_data, self.tickers)
+
+        return (pd.concat(datas, keys=self.tickers, names=['Ticker', 'Date']))
+
+    @property
+    def asset_return(self):
+        daily_close_px = self.data[['Adj Close']].reset_index().pivot('Date', 'Ticker', 'Adj Close')
+        daily_log_returns = np.log(daily_close_px.pct_change() + 1)
+        # print(daily_log_returns)
+
+        monthly_close_px = daily_close_px.resample('M').mean()
+
+        monthly_log_returns = np.log(monthly_close_px.pct_change() + 1)
+
+        return monthly_log_returns[1:]
+
+    @property
+    def volatility(self):
+        return self.asset_return.std(axis=0).mul(np.sqrt(12))
+
+    @property
+    def mean(self):
+        return (self.asset_return.mean(axis=0) * 12).subtract(0.5 * self.volatility.pow(2))
+
+    @property
+    def correlation(self):
+        return self.asset_return.corr()
+
+    def bayesian_mean(self, outlook_mean):
+        return (outlook_mean + self.mean) / 2
 
 
 class Portfolio:
@@ -92,7 +138,7 @@ class Portfolio:
     def plot_mean_variance_frontier(self):
         # inverse_risk_aversion_vector = np.arange(-0.3, 100, 0.01)
         # risk_aversion_vector = 1 / inverse_risk_aversion_vector
-        risk_aversion_vector = np.arange(-0.3, 50, 0.01)
+        risk_aversion_vector = np.arange(-0, 50, 0.01)
 
         mean_frontier = []
         variance_frontier = []
@@ -127,24 +173,36 @@ class Portfolio:
 
         plt.figure(num=None, figsize=(15, 7), dpi=80, facecolor='w', edgecolor='k')
         plt.plot(variance_frontier, mean_frontier, 'k')
-        plt.plot(kelly_variance, kelly_mean, 'ro')
-        plt.annotate('Kelly($ \lambda=0$)', xy=(kelly_variance, kelly_mean),
-                     xytext=(kelly_variance, kelly_mean - 0.05 * kelly_mean))
 
-        plt.plot(risk_free_variance, risk_free_mean, 'ro')
-        plt.annotate('Risk Free($ \lambda=+\infty$)', xy=(risk_free_variance, risk_free_mean),
-                     xytext=(risk_free_variance + 0.01, risk_free_mean))
+        # plt.plot(kelly_variance+0*np.arange(risk_free_mean,kelly_mean+0.001,0.001), np.arange(risk_free_mean,kelly_mean+0.001,0.001),'k-')
 
-        plt.plot(aversion_1_variance, aversion_1_mean, 'ro')
-        plt.annotate('Half Kelly($ \lambda=1$)', xy=(aversion_1_variance, aversion_1_mean),
-                     xytext=(aversion_1_variance + 0.1 * aversion_1_variance, aversion_1_mean))
+        # plt.annotate('Fractional Kelly Betting Region',
+        #             xy=(0.15, 0.2),
+        #             xytext=(0.30, 0.2), arrowprops=dict(facecolor='black', shrink=0.05))
+        #
+        # plt.annotate('Overbeting Region',
+        #             xy=(0.95, 0.2),
+        #             xytext=(0.6, 0.2), arrowprops=dict(facecolor='black', shrink=0.05))
 
-        plt.plot(aversion_minus_variance, aversion_minus_mean, 'ro')
-        plt.annotate('Over Bet($ \lambda=-0.2$)', xy=(aversion_minus_variance, aversion_minus_mean),
-                     xytext=(aversion_minus_variance - 0.05 * aversion_minus_variance,
-                             aversion_minus_mean - 0.05 * aversion_minus_mean))
 
-        plt.title('Mean Variance Analysis')
+        # plt.plot(kelly_variance, kelly_mean, 'ro')
+        # plt.annotate('Kelly($ \lambda=0$)', xy=(kelly_variance, kelly_mean),
+        #              xytext=(kelly_variance, kelly_mean - 0.05 * kelly_mean))
+
+        # plt.plot(risk_free_variance, risk_free_mean, 'ro')
+        # plt.annotate('Risk Free($ \lambda=+\infty$)', xy=(risk_free_variance, risk_free_mean),
+        #              xytext=(risk_free_variance + 0.01, risk_free_mean))
+        #
+        # plt.plot(aversion_1_variance, aversion_1_mean, 'ro')
+        # plt.annotate('Half Kelly($ \lambda=1$)', xy=(aversion_1_variance, aversion_1_mean),
+        #              xytext=(aversion_1_variance + 0.1 * aversion_1_variance, aversion_1_mean))
+        #
+        # plt.plot(aversion_minus_variance, aversion_minus_mean, 'ro')
+        # plt.annotate('Overbet($ \lambda=-0.2$)', xy=(aversion_minus_variance, aversion_minus_mean),
+        #              xytext=(aversion_minus_variance - 0.05 * aversion_minus_variance,
+        #                      aversion_minus_mean - 0.05 * aversion_minus_mean))
+
+        plt.title('Mean and Variance Efficient Frontier')
         plt.xlabel('Variance of continuously compounding return')
         plt.ylabel('Mean of continuously compounding return')
         # plt.xticks([])
@@ -233,52 +291,76 @@ class Portfolio:
         print('simulated variance is', self.simulation_analysis()[1])
 
 
-def crra_utility(x, alfa):
-    y = (1 - np.power(x, -alfa))/alfa
+# def crra_utility(x, alfa):
+#     y = (1 - np.power(x, -alfa)) / alfa
+#
+#     return y
+#
+#
+# def plot_utility_fun():
+#     x = np.arange(0.2, 3, 0.01)
+#     y = crra_utility(x, -1)
+#     plt.figure(num=None, figsize=(12, 7), dpi=80, facecolor='w', edgecolor='k')
+#
+#     plt.plot(x, y, label=r'$\lambda =-1$')
+#
+#     y = crra_utility(x, -0.2)
+#     plt.plot(x, y, label=r'$\lambda =-0.2$')
+#
+#     y = crra_utility(x, -0.001)
+#     plt.plot(x, y, label=r'$\lambda =0$')
+#
+#     # y = crra_utility(x, 0.5)
+#     # plt.plot(x, y,  label=r'$\lambda =0.5$')
+#
+#     y = crra_utility(x, 1)
+#     plt.plot(x, y, label=r'$\lambda =1$')
+#     plt.legend()
+#     plt.title('CRRA Utility Function ' r' U(x)=$\frac{ 1- x^{-\lambda}}{\lambda} $')
+#     plt.xlabel(r'$x$')
+#     plt.ylabel(r'$U(x)$')
+#     # plt.xticks([])
+#     # plt.yticks([])
+#     plt.show()
 
-
-    return y
-
-def plot_utility_fun():
-
-    x= np.arange(0.2,2.5,0.01)
-    y=crra_utility(x,-1)
-    plt.plot(x, y, label="-1")
-
-    y=crra_utility(x,-0.5)
-    plt.plot(x, y, label="-0.5")
-
-    y=crra_utility(x,-0.001)
-    plt.plot(x, y, label="0")
-
-    y=crra_utility(x,0.5)
-    plt.plot(x, y, label="0.5")
-
-    y=crra_utility(x,1)
-    plt.plot(x, y, label="1")
-    plt.legend()
-
-    plt.show()
 
 def main():
-    # risk_free_rate = 0.05
+    us_tickers = ['AAPL', 'GOOG', 'USO']
+    start_date = datetime.datetime(2010, 10, 1)
+    end_date = datetime.datetime(2020, 3, 15)
+
+    risky_asset = RiskyAssetSet(us_tickers, start_date, end_date)
+
+    #
+    # print(us_stock.data.Close.USO)
+    # x = 1
+
+
+    risk_free_rate = 0.05
+
+    #
     # mean = [0.12, 0.09, 0.11]
     # volatility = [0.12, 0.11, 0.16]
     # correlation = [[1, 0.24, -0.13], [0.24, 1, 0.32], [-0.13, 0.32, 1]]
-    #
-    # investment_horizon = 1
-    # p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
-    # p.set_risk_aversion(1)
-    #
-    # rebalance_time = 0.10
-    # number_path = 100
-    # p.set_simulation_parameter(rebalance_time, number_path)
-    # p.run_print_details()
-    # p.plot_mean_variance_frontier()
+    asset_return = risky_asset.asset_return
+    mean = risky_asset.mean
+    volatility = risky_asset.volatility
+    correlation = risky_asset.correlation
 
+    investment_horizon = 1
+    p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
+    risk_aversion=1
+    p.set_risk_aversion( risk_aversion)
 
-    plot_utility_fun()
-    x = 1
+    # BF =[1, 0 ,-0.2]
+    # for bf in BF:
+    #     p.set_risk_aversion(bf)
+    #     print(bf)
+    #     rebalance_time = 1/365
+    #     number_path = 10000
+    #     p.set_simulation_parameter(rebalance_time, number_path)
+    #     p.run_print_details()
+    p.plot_mean_variance_frontier()
 
 
 if __name__ == "__main__":
