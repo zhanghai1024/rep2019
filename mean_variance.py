@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pandas_datareader as pdr
 import datetime as datetime
+from cvxopt import matrix, solvers
 
 
 class RiskyAssetSet:
@@ -30,15 +31,15 @@ class RiskyAssetSet:
 
         monthly_log_returns = np.log(monthly_close_px.pct_change() + 1)
 
-        return monthly_log_returns[1:]
+        return daily_log_returns[1:]
 
     @property
     def volatility(self):
-        return self.asset_return.std(axis=0).mul(np.sqrt(12))
+        return self.asset_return.std(axis=0).mul(np.sqrt(252.75))
 
     @property
     def mean(self):
-        return (self.asset_return.mean(axis=0) * 12).subtract(0.5 * self.volatility.pow(2))
+        return (self.asset_return.mean(axis=0) * 252.75).subtract(0.5 * self.volatility.pow(2))
 
     @property
     def correlation(self):
@@ -49,7 +50,7 @@ class RiskyAssetSet:
 
 
 class Portfolio:
-    def __init__(self, risk_free_rate, mean, volatility, correlation, investment_horizon):
+    def __init__(self, risk_free_rate, mean, volatility, correlation, investment_horizon, short_selling="yes"):
         self.mean = np.array(mean)
 
         if len(volatility) != len(mean):
@@ -70,6 +71,7 @@ class Portfolio:
 
         self.initial_stock_price = np.ones(self.mean.size)
         self.initial_wealthy = np.ones(1)
+        self.short_selling = short_selling
 
     @property
     def covariance(self):
@@ -78,8 +80,32 @@ class Portfolio:
 
     # @property
     def rel_risk_allocation(self):
-        rel_risk_allocation = np.dot(np.linalg.inv(self.covariance), (self.mean - self.risk_free_rate)) / np.sum(
-            np.dot(np.linalg.inv(self.covariance), (self.mean - self.risk_free_rate)))
+        if self.short_selling == 'yes':
+            rel_risk_allocation = np.dot(np.linalg.inv(self.covariance), (self.mean - self.risk_free_rate)) / np.sum(
+                np.dot(np.linalg.inv(self.covariance), (self.mean - self.risk_free_rate)))
+
+            # Q = 2 * matrix(self.covariance)
+            # p = 0 * matrix(self.mean)
+            # G = 0*matrix(-np.identity(len(self.mean)))
+            # h = 0 * matrix(self.mean)
+            # A = matrix(np.array(self.mean - self.risk_free_rate), (1, len(self.mean)))
+            # b = matrix(1.0)
+            # sol = solvers.qp(Q, p, G, h, A, b)
+            # x = sol['x']
+            #
+            # rel_risk_allocation = np.array(list(x)) * 1 / np.sum(np.array(x))
+        else:
+
+            Q = 2*matrix(self.covariance)
+            p= 0* matrix(self.mean)
+            G = matrix(-np.identity(len(self.mean)))
+            h = 0*matrix(self.mean)
+            A= matrix(np.array(self.mean - self.risk_free_rate), (1,len(self.mean)))
+            b = matrix(1.0)
+            sol = solvers.qp(Q, p, G, h, A, b)
+            x= sol['x']
+
+            rel_risk_allocation = np.array(list(x)) *1/np.sum(np.array(x))
 
         return rel_risk_allocation
 
@@ -94,7 +120,8 @@ class Portfolio:
             np.dot(np.dot((self.mean - self.risk_free_rate).transpose(), np.linalg.inv(self.covariance)), (
                 self.mean - self.risk_free_rate))) / np.abs(np.sum(
             np.dot(np.linalg.inv(self.covariance), (self.mean - self.risk_free_rate))))
-
+        risk_port_volatility = np.sqrt(
+            np.dot(np.dot(self.rel_risk_allocation().transpose(), np.array(self.covariance)), self.rel_risk_allocation()))
         return risk_port_volatility
 
     @property
@@ -112,8 +139,10 @@ class Portfolio:
 
     # @property
     def abs_risk_port_allocation(self):
-        abs_risk_port_allocation = 1 / (1 + self.risk_aversion) * np.dot(np.linalg.inv(self.covariance), (
-            self.mean - self.risk_free_rate))
+        # abs_risk_port_allocation = 1 / (1 + self.risk_aversion) * np.dot(np.linalg.inv(self.covariance), (
+        #     self.mean - self.risk_free_rate))
+        abs_risk_port_allocation = self.risk_port_leverage()*self.rel_risk_allocation()
+
         # self.abs_risk_port_allocation = abs_risk_port_allocation
 
         return abs_risk_port_allocation
@@ -287,47 +316,47 @@ class Portfolio:
         print('total volatility of return is', np.sqrt(self.expected_total_variance()))
         print('absolute risk portfolio position is', self.abs_risk_port_allocation())
         print('cash position is', 1 - np.sum(self.abs_risk_port_allocation()))
-        print('simulated mean is', self.simulation_analysis()[0])
-        print('simulated variance is', self.simulation_analysis()[1])
+        # print('simulated mean is', self.simulation_analysis()[0])
+        # print('simulated variance is', self.simulation_analysis()[1])
 
 
-# def crra_utility(x, alfa):
-#     y = (1 - np.power(x, -alfa)) / alfa
-#
-#     return y
-#
-#
-# def plot_utility_fun():
-#     x = np.arange(0.2, 3, 0.01)
-#     y = crra_utility(x, -1)
-#     plt.figure(num=None, figsize=(12, 7), dpi=80, facecolor='w', edgecolor='k')
-#
-#     plt.plot(x, y, label=r'$\lambda =-1$')
-#
-#     y = crra_utility(x, -0.2)
-#     plt.plot(x, y, label=r'$\lambda =-0.2$')
-#
-#     y = crra_utility(x, -0.001)
-#     plt.plot(x, y, label=r'$\lambda =0$')
-#
-#     # y = crra_utility(x, 0.5)
-#     # plt.plot(x, y,  label=r'$\lambda =0.5$')
-#
-#     y = crra_utility(x, 1)
-#     plt.plot(x, y, label=r'$\lambda =1$')
-#     plt.legend()
-#     plt.title('CRRA Utility Function ' r' U(x)=$\frac{ 1- x^{-\lambda}}{\lambda} $')
-#     plt.xlabel(r'$x$')
-#     plt.ylabel(r'$U(x)$')
-#     # plt.xticks([])
-#     # plt.yticks([])
-#     plt.show()
+def crra_utility(x, alfa):
+    y = (1 - np.power(x, -alfa)) / alfa
+
+    return y
+
+
+def plot_utility_fun():
+    x = np.arange(0.2, 3, 0.01)
+    y = crra_utility(x, -1)
+    plt.figure(num=None, figsize=(12, 7), dpi=80, facecolor='w', edgecolor='k')
+
+    plt.plot(x, y, label=r'$\lambda =-1$')
+
+    y = crra_utility(x, -0.2)
+    plt.plot(x, y, label=r'$\lambda =-0.2$')
+
+    y = crra_utility(x, -0.001)
+    plt.plot(x, y, label=r'$\lambda =0$')
+
+    # y = crra_utility(x, 0.5)
+    # plt.plot(x, y,  label=r'$\lambda =0.5$')
+
+    y = crra_utility(x, 1)
+    plt.plot(x, y, label=r'$\lambda =1$')
+    plt.legend()
+    plt.title('CRRA Utility Function ' r' U(x)=$\frac{ 1- x^{-\lambda}}{\lambda} $')
+    plt.xlabel(r'$x$')
+    plt.ylabel(r'$U(x)$')
+    # plt.xticks([])
+    # plt.yticks([])
+    plt.show()
 
 
 def main():
-    us_tickers = ['AAPL', 'GOOG', 'USO']
-    start_date = datetime.datetime(2010, 10, 1)
-    end_date = datetime.datetime(2020, 3, 15)
+    us_tickers = ['AAPL', 'GOOG', 'AMZN','USO','AAL','MSFT','JPM','UNH','VZ','PEP']
+    start_date = datetime.datetime(2015, 4, 10)
+    end_date = datetime.datetime(2020, 3, 27)
 
     risky_asset = RiskyAssetSet(us_tickers, start_date, end_date)
 
@@ -342,15 +371,37 @@ def main():
     # mean = [0.12, 0.09, 0.11]
     # volatility = [0.12, 0.11, 0.16]
     # correlation = [[1, 0.24, -0.13], [0.24, 1, 0.32], [-0.13, 0.32, 1]]
-    asset_return = risky_asset.asset_return
     mean = risky_asset.mean
     volatility = risky_asset.volatility
     correlation = risky_asset.correlation
 
     investment_horizon = 1
-    p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon)
-    risk_aversion=1
-    p.set_risk_aversion( risk_aversion)
+    p = Portfolio(risk_free_rate, mean, volatility, correlation, investment_horizon, short_selling="no")
+    risk_aversion = 1
+    p.set_risk_aversion(risk_aversion)
+    # p.run_print_details()
+
+    rel_risk_allocation = p.rel_risk_allocation()
+    abs_risk_port_allocation = p.abs_risk_port_allocation()
+    sharpe_ratio = p.sharpe_ratio
+    excess_return = p.excess_return
+    risk_port_leverage = p.risk_port_leverage()
+    expected_total_mean = p.expected_total_mean()
+    expected_total_variance = p.expected_total_variance()
+
+    print("**************** PRINT DETAILS*******************")
+    print("return rate",  mean )
+    print("volatility",  volatility )
+    # print("correlation",  correlation)
+    print("relative risk portfolio allocation is",  rel_risk_allocation )
+    print('absolute risk portfolio position is',  abs_risk_port_allocation )
+    print('sharpe ratio is',  sharpe_ratio)
+    print('excess return is',  excess_return)
+    print('risk portfolio leverage is',  risk_port_leverage )
+    print('total expected return is',  expected_total_mean )
+    print('total variance of return is',  expected_total_variance )
+
+
 
     # BF =[1, 0 ,-0.2]
     # for bf in BF:
@@ -360,8 +411,10 @@ def main():
     #     number_path = 10000
     #     p.set_simulation_parameter(rebalance_time, number_path)
     #     p.run_print_details()
-    p.plot_mean_variance_frontier()
+    # p.plot_mean_variance_frontier()
 
+
+    x=1
 
 if __name__ == "__main__":
     main()
